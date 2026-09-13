@@ -513,14 +513,19 @@ overload.module("torch", torch, function(module)
       function(g, ans, x, ...)
          local Dg = torch.nDimension(g)
          local Dx = torch.nDimension(x)
+         -- Sum matching blocks without concatenating along a new dimension.
+         -- Keep singleton dimensions so subsequent axis indices stay valid.
          for i=Dx,1,-1 do
-            local D = torch.nDimension(g)
-            local c = util.cat(torch.split(g,torch.size(x,i), Dg-Dx+i), D+1)
-            g = torch.squeeze(torch.sum(c,D+1))
+            local blocks = torch.split(g, torch.size(x,i), Dg-Dx+i)
+            g = blocks[1]
+            for j=2,Value.len(blocks) do
+               g = torch.add(g, blocks[j])
+            end
          end
          for i=1,Dg-Dx do
-            g = torch.squeeze(torch.sum(g,1))
+            g = torch.sum(g,i)
          end
+         g = torch.viewAs(torch.contiguous(g), x)
          return g
       end,
       function(g, ans, ...) return nil end,
